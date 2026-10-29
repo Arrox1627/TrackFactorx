@@ -88,10 +88,9 @@
     },
   ];
 
-  // Key moments in this session, found in the data (bar index, 5-min bars from 09:30).
-  const RECLAIM_BAR = 17; // 10:55 — first close back above VWAP after the morning sell-off
-  const TOUCHES = [39, 48]; // 12:45 and 13:30 — pullbacks that tagged VWAP and held
-  const BOUNCE_HIGH_BAR = 52; // 13:50 — high after the second touch
+  // Key moments, detected from the data by scripts/build-data.mjs (bar indexes, 5-min bars from 09:30):
+  // the first close back above VWAP, two pullbacks that tagged VWAP and held, and the high after the bounce.
+  const { reclaim: RECLAIM_BAR, touches: TOUCHES, bounceHigh: BOUNCE_HIGH_BAR } = D.moments;
 
   // ---------------------------------------------------------------- math helpers
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -105,8 +104,15 @@
   };
 
   // ---------------------------------------------------------------- chart view (supports animated zoom)
-  const FULL = [-0.6, 78.6, 50.62, 52.58];
-  const ZOOM = [18.6, 61.4, 51.34, 52.36];
+  const FULL = D.view.full; // [first bar, last bar, low price, high price]
+  const ZOOM = D.view.zoom;
+  const SPAN = FULL[3] - FULL[2];
+  const VWAP_MID = (Math.min(...D.vwap1m) + Math.max(...D.vwap1m)) / 2;
+
+  // Price grid: a "nice" step for the full day, halved (when still nice) while zoomed in.
+  const NICE = [0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50];
+  const TICK = NICE.find((s) => s >= SPAN / 8) ?? 100;
+  const TICK_FINE = NICE.includes(TICK / 2) ? TICK / 2 : TICK;
 
   function viewAt(t) {
     const z = ease.inOut(prog(t, ...T.zoomIn)) * (1 - ease.inOut(prog(t, ...T.zoomOut)));
@@ -120,6 +126,7 @@
       y: (p) => PLOT.y1 - (p - pa) * sy,
       pa,
       pb,
+      ub,
     };
   }
 
@@ -330,7 +337,7 @@
     const tw = ctx.measureText(D.ticker).width;
     ctx.font = FONT.med(24);
     ctx.fillStyle = C.muted;
-    ctx.fillText(`${D.name} · 5-min candles · Apr 22, 2016`, PLOT.x0 + tw + 14, TITLE_Y);
+    ctx.fillText(`${D.name} · 5-min candles · ${D.session}`, PLOT.x0 + tw + 14, TITLE_Y);
 
     // legend
     ctx.font = FONT.semi(24);
@@ -357,9 +364,12 @@
     ctx.fillStyle = C.faint;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
-    for (let p = 50.75; p <= 52.5001; p += 0.25) {
+    for (let k = Math.ceil(view.pa / TICK_FINE); k * TICK_FINE <= view.pb; k++) {
+      const p = k * TICK_FINE;
       const y = view.y(p);
       if (y < PLOT.y0 + 8 || y > PLOT.y1 - 4) continue;
+      const coarse = Math.abs(p / TICK - Math.round(p / TICK)) < 1e-6;
+      ctx.globalAlpha = alpha * (coarse ? 1 : view.z);
       ctx.setLineDash([4, 8]);
       ctx.beginPath();
       ctx.moveTo(PLOT.x0, y);
@@ -369,6 +379,7 @@
       // Skip labels the VWAP tag would cover.
       if (Math.abs(y - avoidY) > 40) ctx.fillText(p.toFixed(2), PANEL.x1 - 18, y);
     }
+    ctx.globalAlpha = alpha;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
     const hours = [['10am', 30], ['11am', 90], ['12pm', 150], ['1pm', 210], ['2pm', 270], ['3pm', 330]];
@@ -412,7 +423,7 @@
     ctx.lineTo(PLOT.x1 + 4, pts.at(-1)[1]);
     ctx.lineTo(PLOT.x1 + 4, edgeY);
     ctx.closePath();
-    const mid = view.y(51.7);
+    const mid = view.y(VWAP_MID);
     const g = ctx.createLinearGradient(0, mid, 0, edgeY);
     g.addColorStop(0, `rgba(${color},${0.3 * alpha})`);
     g.addColorStop(1, `rgba(${color},${0.03 * alpha})`);
@@ -550,8 +561,9 @@
       return 1 - 0.72 * (wBelow * (below ? 0 : 1) + wAbove * (below ? 1 : 0));
     };
 
-    // Value tag rides the line's head while it draws, then sits at the day's last VWAP.
-    const tagValue = D.vwap1m[clamp(Math.round((uMax + 0.5) * D.barMinutes) - 1, 0, D.vwap1m.length - 1)];
+    // Value tag rides the line's head while it draws, then sits where the line leaves the plot.
+    const tagU = Math.min(uMax, view.ub - 0.5);
+    const tagValue = D.vwap1m[clamp(Math.round((tagU + 0.5) * D.barMinutes) - 1, 0, D.vwap1m.length - 1)];
     const tagA = uMax > vwapU(0) ? prog(t, T.draw[0] + 0.1, T.draw[0] + 0.3) : 0;
 
     ctx.save();
@@ -605,12 +617,13 @@
     const sellers = ease.out(prog(t, T.below + 0.25, T.below + 0.55)) * lerp(1, 0.45, prog(t, T.above, T.above + 0.3)) * fade;
     const buyers = ease.out(prog(t, T.above + 0.25, T.above + 0.55)) * fade;
     if (sellers > 0) {
-      pill(view.x(40), view.y(51.0) + (1 - sellers) * 16, "▼  SELLERS' ZONE", {
+      // Empty space under the line after the morning / above it before the reclaim.
+      pill(view.x(BARS.length * 0.52), view.y(FULL[2] + SPAN * 0.2) + (1 - sellers) * 16, "▼  SELLERS' ZONE", {
         font: FONT.semi(26), bg: 'rgba(255,77,97,0.16)', border: 'rgba(255,77,97,0.6)', fg: '#ff8a98', h: 52, align: 'center', alpha: sellers,
       });
     }
     if (buyers > 0) {
-      pill(view.x(14), view.y(52.38) + (1 - buyers) * 16, "▲  BUYERS' ZONE", {
+      pill(view.x(BARS.length * 0.18), view.y(FULL[3] - SPAN * 0.06) + (1 - buyers) * 16, "▲  BUYERS' ZONE", {
         font: FONT.semi(26), bg: 'rgba(38,208,124,0.16)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 52, align: 'center', alpha: buyers,
       });
     }
@@ -763,7 +776,7 @@
     ctx.font = FONT.med(22);
     ctx.fillStyle = C.faint;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText('Real MSFT data · Apr 22, 2016', PANEL.x0 + 4, FOOTER_Y);
+    ctx.fillText(D.credit, PANEL.x0 + 4, FOOTER_Y);
     ctx.textAlign = 'right';
     ctx.fillText('Education only · not financial advice', PANEL.x1 - 4, FOOTER_Y);
     ctx.restore();

@@ -1,5 +1,8 @@
 # Data
 
+`sample_1min.csv`: a made-up but realistic trading day for the fictional ticker `DEMO`. `scripts/generate-sample.mjs`
+generates it with a fixed seed, so it's reproducible. This is the default chart in the reel.
+
 `MSFT_2016-04-22_1min.csv`: Microsoft (MSFT) 1-minute OHLCV bars for **Friday, April 22, 2016**, the regular session.
 Times are US/Eastern.
 

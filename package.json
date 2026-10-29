@@ -2,9 +2,10 @@
   "name": "vwap-explainer-reel",
   "version": "1.0.0",
   "private": true,
-  "description": "10-second vertical reel explaining VWAP on a real MSFT intraday chart",
+  "description": "10-second vertical reel explaining VWAP on a realistic candlestick chart",
   "type": "module",
   "scripts": {
+    "sample": "node scripts/generate-sample.mjs",
     "data": "node scripts/build-data.mjs",
     "preview": "node scripts/server.mjs",
     "render": "node scripts/render.mjs",
