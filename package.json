@@ -1,0 +1,19 @@
+{
+  "name": "vwap-explainer-reel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "10-second vertical reel explaining VWAP on a real MSFT intraday chart",
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/build-data.mjs",
+    "preview": "node scripts/server.mjs",
+    "render": "node scripts/render.mjs",
+    "frames": "node -e \"process.env.FRAMES=process.argv[1]; import('./scripts/render.mjs')\""
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

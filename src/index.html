@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VWAP Explainer Reel</title>
+  <style>
+    @font-face { font-family: 'Reel Display'; font-weight: 900; src: url('../assets/fonts/InterDisplay-Black.woff2') format('woff2'); }
+    @font-face { font-family: 'Reel Display'; font-weight: 800; src: url('../assets/fonts/InterDisplay-ExtraBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Reel Text'; font-weight: 600; src: url('../assets/fonts/Inter-SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Reel Text'; font-weight: 500; src: url('../assets/fonts/Inter-Medium.woff2') format('woff2'); }
+
+    html, body { margin: 0; height: 100%; background: #05070b; color: #9aa4b2; font: 500 14px 'Reel Text', system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    canvas { display: block; height: calc(100vh - 72px); aspect-ratio: 9 / 16; border-radius: 12px; box-shadow: 0 0 0 1px #1c2230; }
+    .controls { display: flex; align-items: center; gap: 12px; width: min(560px, 90vw); }
+    .controls input { flex: 1; accent-color: #ffb547; }
+    .controls button { background: #161b26; color: #e8ecf2; border: 1px solid #2a3142; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+    .controls output { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+    body.render { display: block; }
+    body.render canvas { height: auto; border-radius: 0; box-shadow: none; }
+    body.render .controls { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="reel" width="1080" height="1920"></canvas>
+  <div class="controls">
+    <button id="play" type="button">Pause</button>
+    <input id="scrub" type="range" min="0" max="10" step="0.0333" value="0" aria-label="Timeline">
+    <output id="clock">0.00s</output>
+  </div>
+  <script src="data.js"></script>
+  <script src="reel.js"></script>
+</body>
+</html>
