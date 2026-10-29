@@ -1,12 +1,15 @@
-// VWAP explainer reel: 10 s, 1080x1920, every frame is a pure function of time `t`.
+// VWAP explainer reel: ~14 s, 1080x1920, every frame is a pure function of time `t`.
 // scripts/render.mjs calls window.renderFrame(t) for each frame; opening the page plays a live preview.
 (() => {
   'use strict';
 
   const W = 1080;
   const H = 1920;
-  const DURATION = 10;
   const FPS = 30;
+  // Timings below are written in "story seconds" for a 10 s cut. PACE stretches the whole reel evenly
+  // (1.35 = every animation plays 35% slower); DURATION is the final length in real seconds.
+  const PACE = 1.35;
+  const DURATION = 13.9;
   const D = window.REEL_DATA;
   const BARS = D.bars;
   const V_MAX = Math.max(...BARS.map((b) => b.v));
@@ -28,11 +31,13 @@
     ink: '#1a1206',
   };
   const RICH = { amber: C.amber, red: C.down, green: C.up };
+  // Bricolage Grotesque (display + text cuts) for words, JetBrains Mono for labels and numbers.
   const FONT = {
-    black: (px) => `900 ${px}px 'Reel Display', sans-serif`,
-    head: (px) => `800 ${px}px 'Reel Display', sans-serif`,
-    semi: (px) => `600 ${px}px 'Reel Text', sans-serif`,
-    med: (px) => `500 ${px}px 'Reel Text', sans-serif`,
+    display: (px) => `800 ${px}px 'Reel Display', sans-serif`,
+    text: (px) => `500 ${px}px 'Reel Text', sans-serif`,
+    textBold: (px) => `600 ${px}px 'Reel Text', sans-serif`,
+    mono: (px) => `500 ${px}px 'Reel Mono', monospace`,
+    monoBold: (px) => `600 ${px}px 'Reel Mono', monospace`,
   };
 
   // ---------------------------------------------------------------- layout (Reels-safe: key content between y≈270 and y≈1480)
@@ -48,28 +53,27 @@
   const HEAD_Y = [422, 506];
   const SUB_Y = 580;
 
-  // ---------------------------------------------------------------- timeline (seconds)
-  // Cuts and key hits sit on the soundtrack's 133⅓ BPM grid (1 beat = 0.45 s) so the music lands on them.
-  const BEAT = 0.45;
+  // ---------------------------------------------------------------- timeline (story seconds; real time = story * PACE)
   const T = {
     hookUnfold: [0.22, 0.56],
     hookType: 0.5, // first word starts typing; the others follow HOOK_TYPE_STAGGER apart
     hookOut: [1.08, 1.34],
-    what: 3 * BEAT, // beat drops, chart arrives
+    what: 1.35, // chart arrives
     chartIn: [1.3, 1.6],
     draw: [1.6, 3.75],
+    tagIn: 1.7, // VWAP pill + price tag pop in
     volFlash: [2.45, 3.6],
-    below: 9 * BEAT,
-    above: 12 * BEAT,
-    reclaimRing: 12.5 * BEAT,
-    dip: 15 * BEAT,
-    zoomIn: [6.77, 16 * BEAT],
-    touches: [16 * BEAT, 17 * BEAT],
-    arrow: [7.75, 18 * BEAT],
-    bounce: 18 * BEAT,
+    below: 4.05,
+    above: 5.4,
+    reclaimRing: 5.625,
+    dip: 6.75,
+    zoomIn: [6.77, 7.2],
+    touches: [7.2, 7.65],
+    arrow: [7.75, 8.1],
+    bounce: 8.1,
     zoomOut: [8.4, 8.85],
-    recap: 19 * BEAT,
-    recapRows: [19.5 * BEAT, 20 * BEAT, 20.5 * BEAT],
+    recap: 8.55,
+    recapRows: [8.775, 9.0, 9.225],
   };
   const HOOK_TYPE_STAGGER = 0.055;
 
@@ -77,12 +81,12 @@
     {
       start: T.what, end: T.below, chip: '1 · WHAT IT IS',
       head: ['The [amber]average price[/] of', 'every share traded today'],
-      sub: 'Big-volume trades pull the line harder', subAt: 5 * BEAT,
+      sub: 'Big-volume trades pull the line harder', subAt: 2.25,
     },
     {
       start: T.below, end: T.dip, chip: '2 · HOW TO READ IT',
       head: ['Price [red]below[/] the line', '→ [red]sellers[/] in control'],
-      sub: "Today's average buyer is [red]losing money[/]", subAt: 9.5 * BEAT,
+      sub: "Today's average buyer is [red]losing money[/]", subAt: 4.275,
       morphAt: T.above,
       head2: ['Price [green]above[/] the line', '→ [green]buyers[/] in control'],
       sub2: "Today's average buyer is [green]in profit[/]",
@@ -90,12 +94,12 @@
     {
       start: T.dip, end: T.recap, chip: '3 · HOW TO USE IT',
       head: ['Dips to the line', 'often [green]bounce[/] ↑'],
-      sub: 'Traders treat VWAP like a floor to buy from', subAt: 15.5 * BEAT,
+      sub: 'Traders treat VWAP like a floor to buy from', subAt: 6.975,
     },
     {
-      start: T.recap, end: DURATION + 1, chip: 'RECAP',
+      start: T.recap, end: 99, chip: 'RECAP', // stays up until the reel ends
       head: ["VWAP = the day's", '[amber]fair price[/]'],
-      sub: 'A guide, not a guarantee', subAt: 20.5 * BEAT,
+      sub: 'A guide, not a guarantee', subAt: 9.225,
     },
   ];
 
@@ -167,7 +171,7 @@
     pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   }
 
-  function pill(x, y, text, { font = FONT.semi(24), bg, fg, border, padX = 16, h = 44, align = 'left', alpha = 1 }) {
+  function pill(x, y, text, { font = FONT.monoBold(22), bg, fg, border, padX = 16, h = 44, align = 'left', alpha = 1 }) {
     ctx.save();
     ctx.globalAlpha *= alpha;
     ctx.font = font;
@@ -342,16 +346,16 @@
     ctx.stroke();
 
     ctx.textBaseline = 'alphabetic';
-    ctx.font = FONT.semi(30);
+    ctx.font = FONT.monoBold(28);
     ctx.fillStyle = C.text;
     ctx.fillText(D.ticker, PLOT.x0, TITLE_Y);
     const tw = ctx.measureText(D.ticker).width;
-    ctx.font = FONT.med(24);
+    ctx.font = FONT.mono(21);
     ctx.fillStyle = C.muted;
     ctx.fillText(`${D.name} · 5-min candles · ${D.session}`, PLOT.x0 + tw + 14, TITLE_Y);
 
     // legend
-    ctx.font = FONT.semi(24);
+    ctx.font = FONT.monoBold(22);
     ctx.fillStyle = C.amber;
     ctx.textAlign = 'right';
     ctx.fillText('VWAP', PANEL.x1 - 30, TITLE_Y);
@@ -371,7 +375,7 @@
     ctx.globalAlpha = alpha;
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = C.grid;
-    ctx.font = FONT.med(22);
+    ctx.font = FONT.mono(20);
     ctx.fillStyle = C.faint;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
@@ -404,7 +408,7 @@
       ctx.fillText(label, x, TIME_Y);
     }
     ctx.textAlign = 'left';
-    ctx.font = FONT.semi(18);
+    ctx.font = FONT.monoBold(16);
     ctx.fillStyle = C.faint;
     ctx.fillText('VOLUME', PLOT.x0 + 4, VOL.y0 + 16);
     ctx.restore();
@@ -465,7 +469,7 @@
     if (flash > 0) {
       ctx.save();
       ctx.globalAlpha = flash;
-      ctx.font = FONT.semi(22);
+      ctx.font = FONT.monoBold(20);
       ctx.fillStyle = C.amber;
       ctx.textBaseline = 'middle';
       ctx.fillText('← heavy volume = more weight', view.x(9.5), VOL.y0 + 16);
@@ -549,9 +553,9 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const cx = (PLOT.x1 + 12 + PANEL.x1 - 10) / 2;
-    ctx.font = FONT.semi(15);
+    ctx.font = FONT.monoBold(14);
     ctx.fillText('VWAP', cx, y - 12);
-    ctx.font = FONT.semi(23);
+    ctx.font = FONT.monoBold(21);
     ctx.fillText(value.toFixed(2), cx, y + 11);
     ctx.restore();
   }
@@ -575,7 +579,7 @@
     // Value tag rides the line's head while it draws, then sits where the line leaves the plot.
     const tagU = Math.min(uMax, view.ub - 0.5);
     const tagValue = D.vwap1m[clamp(Math.round((tagU + 0.5) * D.barMinutes) - 1, 0, D.vwap1m.length - 1)];
-    const tagA = uMax > vwapU(0) ? prog(t, T.draw[0] + 0.1, T.draw[0] + 0.3) : 0;
+    const tagA = uMax > vwapU(0) ? prog(t, T.tagIn, T.tagIn + 0.2) : 0;
 
     ctx.save();
     ctx.globalAlpha = chartA;
@@ -598,8 +602,9 @@
     if (head) {
       drawVwapTag(view, tagValue, tagA);
       if (drawing) {
-        pill(head[0] + 18, head[1] - 34, 'VWAP', {
-          font: FONT.semi(22), bg: C.amber, fg: C.ink, h: 38, padX: 12,
+        const flip = head[0] > PLOT.x1 - 130; // near the right edge: sit left of the line's head, clear of the axis
+        pill(head[0] + (flip ? -18 : 18), head[1] - 34, 'VWAP', {
+          font: FONT.monoBold(20), bg: C.amber, fg: C.ink, h: 38, padX: 12, align: flip ? 'right' : 'left',
           alpha: tagA * (1 - prog(t, T.draw[1] - 0.15, T.draw[1] + 0.05)),
         });
       }
@@ -630,12 +635,12 @@
     if (sellers > 0) {
       // Empty space under the line after the morning / above it before the reclaim.
       pill(view.x(BARS.length * 0.52), view.y(FULL[2] + SPAN * 0.2) + (1 - sellers) * 16, "▼  SELLERS' ZONE", {
-        font: FONT.semi(26), bg: 'rgba(255,77,97,0.16)', border: 'rgba(255,77,97,0.6)', fg: '#ff8a98', h: 52, align: 'center', alpha: sellers,
+        font: FONT.monoBold(23), bg: 'rgba(255,77,97,0.16)', border: 'rgba(255,77,97,0.6)', fg: '#ff8a98', h: 52, align: 'center', alpha: sellers,
       });
     }
     if (buyers > 0) {
       pill(view.x(BARS.length * 0.18), view.y(FULL[3] - SPAN * 0.06) + (1 - buyers) * 16, "▲  BUYERS' ZONE", {
-        font: FONT.semi(26), bg: 'rgba(38,208,124,0.16)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 52, align: 'center', alpha: buyers,
+        font: FONT.monoBold(23), bg: 'rgba(38,208,124,0.16)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 52, align: 'center', alpha: buyers,
       });
     }
   }
@@ -650,7 +655,7 @@
     ctx.globalAlpha *= a;
     ripple(x, y, p, C.up);
     pill(x + 40, y + 64, 'crosses above', {
-      font: FONT.semi(22), bg: 'rgba(6,9,15,0.85)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 40, padX: 14,
+      font: FONT.monoBold(20), bg: 'rgba(6,9,15,0.85)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 40, padX: 14,
       alpha: ease.out(prog(t, T.reclaimRing + 0.1, T.reclaimRing + 0.35)),
     });
     ctx.restore();
@@ -667,7 +672,7 @@
       const y = view.y(BARS[bar].vwap);
       ripple(x, y, prog(t, start, start + 1.2), C.amber);
       pill(x, y + 70, k === 0 ? 'touch' : 'touch again', {
-        font: FONT.semi(22), bg: 'rgba(6,9,15,0.85)', border: 'rgba(255,181,71,0.6)', fg: C.amberHot, h: 40, padX: 14, align: 'center',
+        font: FONT.monoBold(20), bg: 'rgba(6,9,15,0.85)', border: 'rgba(255,181,71,0.6)', fg: C.amberHot, h: 40, padX: 14, align: 'center',
         alpha: ease.out(prog(t, start + 0.1, start + 0.35)),
       });
     });
@@ -681,7 +686,7 @@
     arrow(x0, y0, x0 + 6, y1 + 20, x1, y1, ap, C.up);
     const gain = ((BARS[BOUNCE_HIGH_BAR].h / BARS[last].vwap - 1) * 100).toFixed(1);
     pill(x1 + 10, y1 - 34, `bounce +${gain}%`, {
-      font: FONT.semi(26), bg: 'rgba(38,208,124,0.18)', border: 'rgba(38,208,124,0.7)', fg: '#7af0b4', h: 48, align: 'center',
+      font: FONT.monoBold(24), bg: 'rgba(38,208,124,0.18)', border: 'rgba(38,208,124,0.7)', fg: '#7af0b4', h: 48, align: 'center',
       alpha: ease.out(prog(t, T.bounce, T.bounce + 0.25)),
     });
     ctx.restore();
@@ -695,16 +700,16 @@
       const inP = ease.out(prog(t, s.start, s.start + 0.3));
       const a = inP * (1 - out);
       pill(TEXT_X + (1 - inP) * -30, CHIP_Y, s.chip, {
-        font: FONT.semi(24), bg: 'rgba(255,181,71,0.12)', border: 'rgba(255,181,71,0.5)', fg: '#ffd08a', h: 48, padX: 20, alpha: a,
+        font: FONT.monoBold(22), bg: 'rgba(255,181,71,0.12)', border: 'rgba(255,181,71,0.5)', fg: '#ffd08a', h: 48, padX: 20, alpha: a,
       });
       drawRichBlock(t, {
         lines: s.head, next: s.head2, start: s.start, end: s.end, morphAt: s.morphAt,
-        fontFn: FONT.head, size: 80, ys: HEAD_Y, color: C.text,
+        fontFn: FONT.display, size: 84, ys: HEAD_Y, color: C.text,
       });
       if (s.sub) {
         drawRichBlock(t, {
           lines: [s.sub], next: s.sub2 && [s.sub2], start: s.subAt, end: s.end, morphAt: s.morphAt && s.morphAt + 0.1,
-          fontFn: FONT.med, size: 38, ys: [SUB_Y], color: C.muted, stagger: 0.025,
+          fontFn: FONT.text, size: 39, ys: [SUB_Y], color: C.muted, stagger: 0.025,
         });
       }
     }
@@ -720,7 +725,7 @@
     const baseY = (PANEL.y0 + PANEL.y1) / 2 - gap;
     ctx.save();
     // Fit all three rows to the same font size.
-    ctx.font = FONT.semi(44);
+    ctx.font = FONT.textBold(44);
     const widest = Math.max(...rows.map((r) => ctx.measureText(r.text.replace(/\[\/?\w*\]/g, '')).width));
     const size = Math.min(44, Math.floor((44 * 790) / widest));
     rows.forEach((r, i) => {
@@ -773,7 +778,7 @@
         ctx.stroke();
       }
       // text
-      const { words, font } = layoutRich([r.text], FONT.semi, size, [y + size * 0.36], 790);
+      const { words, font } = layoutRich([r.text], FONT.textBold, size, [y + size * 0.36], 790);
       words.forEach((w) => drawWord({ ...w, x: w.x + 130 + dx }, font, 1, 0, C.text));
     });
     ctx.restore();
@@ -784,7 +789,7 @@
     if (a <= 0) return;
     ctx.save();
     ctx.globalAlpha = a;
-    ctx.font = FONT.med(22);
+    ctx.font = FONT.mono(19);
     ctx.fillStyle = C.faint;
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(D.credit, PANEL.x0 + 4, FOOTER_Y);
@@ -832,15 +837,15 @@
     ctx.fillRect(0, 0, W, H);
 
     pill(W / 2, 640 - unfold * 40, 'TRADING BASICS', {
-      font: FONT.semi(26), bg: 'rgba(255,181,71,0.12)', border: 'rgba(255,181,71,0.5)', fg: '#ffd08a', h: 52, padX: 22, align: 'center',
+      font: FONT.monoBold(24), bg: 'rgba(255,181,71,0.12)', border: 'rgba(255,181,71,0.5)', fg: '#ffd08a', h: 52, padX: 22, align: 'center',
     });
 
     const bigSize = 250 * lerp(1.08, 1, settle);
     const smallSize = 136;
-    ctx.font = FONT.black(bigSize);
+    ctx.font = FONT.display(bigSize);
     const letterW = HOOK_WORDS.map((w) => ctx.measureText(w[0]).width);
     const bigTotal = letterW.reduce((s, x) => s + x, 0);
-    ctx.font = FONT.black(smallSize);
+    ctx.font = FONT.display(smallSize);
     const wordW = HOOK_WORDS.map((w) => ctx.measureText(w).width);
     const stackX = (W - Math.max(...wordW)) / 2;
     const bigBaseline = 1050;
@@ -854,7 +859,7 @@
       const y = lerp(bigBaseline, stackTop + i * lineGap, unfold);
       bx += letterW[i];
 
-      ctx.font = FONT.black(size);
+      ctx.font = FONT.display(size);
       ctx.textBaseline = 'alphabetic';
       const lg = ctx.createLinearGradient(0, y - size * 0.75, 0, y);
       lg.addColorStop(0, '#ffe2a6');
@@ -882,15 +887,16 @@
       }
     });
 
-    ctx.font = FONT.med(40);
+    ctx.font = FONT.text(40);
     ctx.fillStyle = C.muted;
     ctx.textAlign = 'center';
-    ctx.fillText('explained in 10 seconds', W / 2, lerp(1150, 1440, unfold));
+    ctx.fillText(`explained in ${Math.round(DURATION)} seconds`, W / 2, lerp(1150, 1440, unfold));
     ctx.restore();
   }
 
   // ---------------------------------------------------------------- frame
-  function draw(t) {
+  function draw(realT) {
+    const t = realT / PACE;
     ctx.save();
     ctx.clearRect(0, 0, W, H);
     drawBackground();
@@ -903,19 +909,23 @@
     ctx.restore();
   }
 
-  // ---------------------------------------------------------------- soundtrack cue sheet
-  // scripts/soundtrack.mjs turns this into music + sound effects, so the audio follows the same timeline as the picture.
+  // ---------------------------------------------------------------- sound-effect cue sheet
+  // scripts/soundtrack.mjs turns this into the animation sounds, so audio follows the same timeline as the picture.
+  // Times and durations are converted to real seconds here.
   function audioCues() {
     const pan = (t, u) => clamp((viewAt(t).x(u) - W / 2) / (W / 2), -1, 1);
     const whoosh = (span, from, to, panFrom = 0, panTo = 0) => ({
       t: span[0], type: 'whoosh', dur: span[1] - span[0], from, to, pan: [panFrom, panTo],
     });
     const last = TOUCHES.at(-1);
+    const flashPeak = (T.volFlash[0] + T.volFlash[1]) / 2;
     const cues = [
       { t: 0, type: 'impact' },
       whoosh([T.hookUnfold[0], T.hookUnfold[1] + 0.12], 500, 2600, -0.4, 0.4),
       ...HOOK_WORDS.map((_, i) => ({ t: T.hookType + i * HOOK_TYPE_STAGGER, type: 'sparkle', step: i })),
-      { t: 0.8, type: 'riser', dur: T.what - 0.8 - 0.05 }, // stops just short of the drop: a breath before the beat
+      whoosh(T.hookOut, 2400, 500), // title clears
+      { t: T.what, type: 'land' }, // chart panel arrives
+      { t: T.tagIn, type: 'blip' },
       // One tick per candle as it draws in: panned with its x position, pitched by its closing price.
       ...BARS.map((b, i) => ({
         t: T.draw[0] + ((T.draw[1] - T.draw[0]) * Math.acos(1 - (2 * i) / BARS.length)) / Math.PI,
@@ -923,6 +933,7 @@
         pan: pan(T.draw[0], i + 0.5),
         level: (b.c - FULL[2]) / SPAN,
       })),
+      { t: flashPeak - 0.12, type: 'weight', pan: pan(flashPeak, 4) }, // heavy-volume bars light up
       { t: T.below, type: 'zone', mood: 'down', dur: 0.5 },
       { t: T.above, type: 'flip' },
       { t: T.above, type: 'zone', mood: 'up', dur: 0.5 },
@@ -936,12 +947,7 @@
     ];
     return {
       duration: DURATION,
-      beat: BEAT,
-      sections: {
-        what: T.what, below: T.below, above: T.above, dip: T.dip,
-        touch2: T.touches[1], bounce: T.bounce, recap: T.recap,
-      },
-      cues,
+      cues: cues.map((c) => ({ ...c, t: c.t * PACE, ...(c.dur && { dur: c.dur * PACE }) })),
     };
   }
 
@@ -956,7 +962,7 @@
   if (renderMode) document.body.classList.add('render');
 
   const fontsReady = Promise.all(
-    [FONT.black(100), FONT.head(100), FONT.semi(100), FONT.med(100)].map((f) => document.fonts.load(f)),
+    [FONT.display(100), FONT.text(100), FONT.textBold(100), FONT.mono(100), FONT.monoBold(100)].map((f) => document.fonts.load(f)),
   );
 
   fontsReady.then(() => {
@@ -965,6 +971,7 @@
     if (renderMode) return;
     const play = document.getElementById('play');
     const scrub = document.getElementById('scrub');
+    scrub.max = DURATION;
     const clock = document.getElementById('clock');
     let playing = true;
     let t = 0;

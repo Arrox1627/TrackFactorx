@@ -1,14 +1,14 @@
-// Procedural soundtrack for the reel: a 133⅓ BPM music bed plus sound effects, synthesised from the cue sheet
-// that src/reel.js exports (window.REEL.audio). Everything is generated here: no samples, nothing to license.
+// Animation sound effects for the reel, synthesised from the cue sheet that src/reel.js exports
+// (window.REEL.audio). Everything is generated here: no samples, nothing to license, no music bed.
 //
-//   renderSoundtrack(audio) -> { left, right, sampleRate, loudness }   (mastered to -14 LUFS, peaks <= -1.2 dBFS)
+//   renderSoundtrack(audio) -> { left, right, sampleRate, loudness }   (mastered to TARGET_LUFS, true peak <= -1.5 dBTP)
 //   writeWav(path, track)                                               (16-bit PCM)
 import { writeFileSync } from 'node:fs';
 
 export const SAMPLE_RATE = 48000;
 const SR = SAMPLE_RATE;
 const TAU = Math.PI * 2;
-const TARGET_LUFS = -14;
+const TARGET_LUFS = -16; // effects only: a little below music level, so the hits stay punchy rather than squashed
 const CEILING = 10 ** (-1.5 / 20); // true peak; leaves headroom for AAC encoding
 
 // ------------------------------------------------------------------ helpers
@@ -192,89 +192,7 @@ function pingPong(bus, time, feedback = 0.38) {
   return out;
 }
 
-// ------------------------------------------------------------------ drums
-function kick() {
-  const x = buf(0.42);
-  let ph = 0;
-  for (let i = 0; i < x.length; i++) {
-    const t = i / SR;
-    ph += (TAU * (50 + 130 * Math.exp(-t / 0.03))) / SR;
-    const body = Math.sin(ph) * Math.min(1, t / 0.0015) * Math.exp(-t / 0.13);
-    const knock = Math.sin(TAU * 180 * t) * Math.exp(-t / 0.02) * 0.25;
-    x[i] = Math.tanh(1.8 * body + knock) * 0.95 + noise() * Math.exp(-t / 0.0012) * 0.3;
-  }
-  return fadeEdges(x);
-}
-function hat(open = false) {
-  const x = buf(open ? 0.35 : 0.07);
-  const hp = new Biquad('hp', 7500);
-  for (let i = 0; i < x.length; i++) x[i] = hp.run(noise()) * Math.exp(-i / SR / (open ? 0.1 : 0.02));
-  return fadeEdges(x);
-}
-function clap() {
-  const x = buf(0.32);
-  const bp = new Biquad('bp', 1300, 0.9);
-  for (let i = 0; i < x.length; i++) {
-    const t = i / SR;
-    let env = 0.7 * (t > 0.02 ? Math.exp(-(t - 0.02) / 0.09) : 0);
-    for (let k = 0; k < 3; k++) if (t >= k * 0.01) env += Math.exp(-(t - k * 0.01) / 0.005);
-    x[i] = bp.run(noise()) * env * 1.6;
-  }
-  return fadeEdges(x);
-}
-function snare(pitch = 1) {
-  const x = buf(0.2);
-  const bp = new Biquad('bp', 2000 * pitch, 0.7);
-  for (let i = 0; i < x.length; i++) {
-    const t = i / SR;
-    x[i] = 0.45 * Math.sin(TAU * 190 * pitch * t) * Math.exp(-t / 0.045) + bp.run(noise()) * Math.exp(-t / 0.07) * 1.4;
-  }
-  return fadeEdges(x);
-}
-function crash() {
-  const L = buf(2.2);
-  const R = buf(2.2);
-  const hp = [new Biquad('hp', 3500), new Biquad('hp', 3500)];
-  for (let i = 0; i < L.length; i++) {
-    const env = Math.min(1, i / SR / 0.002) * Math.exp(-i / SR / 0.65);
-    L[i] = hp[0].run(noise()) * env;
-    R[i] = hp[1].run(noise()) * env;
-  }
-  return [fadeEdges(L), fadeEdges(R)];
-}
-
 // ------------------------------------------------------------------ tonal voices
-function bassNote(midi, dur) {
-  const x = buf(dur + 0.05);
-  const f = midiHz(midi);
-  for (let i = 0; i < x.length; i++) {
-    const t = i / SR;
-    const ph = TAU * f * t;
-    const env = Math.min(1, t / 0.006) * (t > dur ? Math.exp(-(t - dur) / 0.015) : 1);
-    const s = Math.sin(ph) + 0.4 * Math.sin(2 * ph) + 0.2 * Math.sin(3 * ph) + 0.08 * Math.sin(4 * ph);
-    x[i] = (Math.tanh(1.4 * s) * 0.6 + 0.16 * Math.sin(ph / 2)) * env;
-  }
-  return fadeEdges(x);
-}
-function padChord(notes, dur) {
-  const L = buf(dur + 0.4);
-  const R = buf(dur + 0.4);
-  const voices = notes.flatMap((m) => [-1, 1].map((side) => ({ side, osc: new Osc(midiHz(m) * 2 ** ((side * 7) / 1200)) })));
-  for (let i = 0; i < L.length; i++) {
-    const t = i / SR;
-    const env = Math.min(1, t / 0.08) * (t > dur ? Math.exp(-(t - dur) / 0.12) : 1);
-    let l = 0;
-    let r = 0;
-    for (const v of voices) {
-      const s = v.osc.saw();
-      l += s * (v.side < 0 ? 0.8 : 0.2);
-      r += s * (v.side < 0 ? 0.2 : 0.8);
-    }
-    L[i] = l * env;
-    R[i] = r * env;
-  }
-  return [fadeEdges(L), fadeEdges(R)];
-}
 function pluck(midi, { bright = 1, decay = 0.2 } = {}) {
   const x = buf(decay * 5);
   const o1 = new Osc(midiHz(midi));
@@ -338,22 +256,46 @@ function whoosh(dur, f0, f1, pan0, pan1) {
   }
   return [fadeEdges(L), fadeEdges(R)];
 }
-function riser(dur) {
-  const L = buf(dur);
-  const R = buf(dur);
-  const bps = [new Biquad('bp', 300, 2.5), new Biquad('bp', 300, 2.5)];
+// Soft "thock" as the chart panel lands: pitched-down knock plus a puff of air.
+function land() {
+  const x = buf(0.35);
+  const lp = new Biquad('lp', 1400);
+  let ph = 0;
+  for (let i = 0; i < x.length; i++) {
+    const t = i / SR;
+    ph += (TAU * (95 + 90 * Math.exp(-t / 0.025))) / SR;
+    const knock = Math.sin(ph) * Math.exp(-t / 0.07);
+    const air = lp.run(noise()) * Math.exp(-t / 0.05) * 0.5;
+    x[i] = Math.tanh(1.5 * (knock + air)) * Math.min(1, t / 0.001);
+  }
+  return fadeEdges(x);
+}
+// Tiny UI blip for a label popping in.
+function blip(freq) {
+  const x = buf(0.12);
+  for (let i = 0; i < x.length; i++) {
+    const t = i / SR;
+    const f = freq * (1 + 0.5 * Math.exp(-t / 0.008));
+    x[i] = Math.sin(TAU * f * t) * Math.min(1, t / 0.001) * Math.exp(-t / 0.035);
+  }
+  return fadeEdges(x);
+}
+// A heavy, rounded thump with harmonics (so it still reads on phone speakers): "this volume has weight".
+function weight() {
+  const L = buf(0.9);
+  const R = buf(0.9);
+  const bp = new Biquad('bp', 400, 0.8);
   let ph = 0;
   for (let i = 0; i < L.length; i++) {
     const t = i / SR;
-    const p = t / dur;
-    if (i % 32 === 0) bps.forEach((b) => b.set(300 * (7000 / 300) ** p));
-    ph += (TAU * 180 * (1400 / 180) ** p) / SR;
-    const env = p ** 2.2;
-    const tone = (Math.sin(ph) + 0.5 * Math.sin(ph * 1.5)) * 0.18;
-    L[i] = (bps[0].run(noise()) * 2 + tone) * env;
-    R[i] = (bps[1].run(noise()) * 2 + tone) * env;
+    ph += (TAU * (70 + 50 * Math.exp(-t / 0.04))) / SR;
+    const body = (Math.sin(ph) + 0.5 * Math.sin(2 * ph) + 0.25 * Math.sin(3 * ph)) * Math.exp(-t / 0.22);
+    const grit = bp.run(noise()) * Math.exp(-t / 0.06) * 0.4;
+    const s = Math.tanh(1.3 * body + grit) * Math.min(1, t / 0.003);
+    L[i] = s;
+    R[i] = s;
   }
-  return [fadeEdges(L, 0.001, 0.006), fadeEdges(R, 0.001, 0.006)];
+  return [fadeEdges(L), fadeEdges(R)];
 }
 function tick(freq) {
   const x = buf(0.09);
@@ -419,8 +361,15 @@ function renderSfx(audio, n) {
       case 'whoosh':
         send(whoosh(c.dur, c.from, c.to, ...c.pan), c.t, 0.32, 0, 0.35);
         break;
-      case 'riser':
-        send(riser(c.dur), c.t, 0.3, 0, 0.25);
+      case 'land':
+        send(land(), c.t, 0.55, 0, 0.3);
+        break;
+      case 'blip':
+        send(blip(1760), c.t, 0.16, 0.6, 0.3, 0.25);
+        break;
+      case 'weight':
+        send(weight(), c.t, 0.45, 0, 0.25);
+        send(bell(57, { decay: 0.35, ratio: 1.5, index: 1.5 }), c.t, 0.12, c.pan * 0.6, 0.2);
         break;
       case 'sparkle':
         send(bell([81, 84, 88, 93][c.step], { decay: 0.5, index: 1.6 }), c.t, 0.16, -0.45 + c.step * 0.3, 0.5, 0.3);
@@ -452,152 +401,21 @@ function renderSfx(audio, n) {
         throw new Error(`unknown cue type: ${c.type}`);
     }
   }
+  // Keep the low end out of the reverb and echo so tails stay airy instead of muddy.
+  for (const bus of [verb, echo]) {
+    const hp = [new Biquad('hp', 320), new Biquad('hp', 320)];
+    for (let i = 0; i < n; i++) {
+      bus.L[i] = hp[0].run(bus.L[i]);
+      bus.R[i] = hp[1].run(bus.R[i]);
+    }
+  }
   const v = reverb(verb, { room: 0.86, damp: 0.35 });
-  const e = pingPong(echo, audio.beat * 0.75, 0.38);
+  const e = pingPong(echo, 0.34, 0.38);
   for (let i = 0; i < n; i++) {
     dry.L[i] += v.L[i] * 0.9 + e.L[i] * 0.6;
     dry.R[i] += v.R[i] * 0.9 + e.R[i] * 0.6;
   }
   return dry;
-}
-
-// ------------------------------------------------------------------ music bed
-const CHORDS = {
-  Am: { pad: [52, 57, 60, 64], bass: 45 },
-  F: { pad: [53, 57, 60, 64], bass: 41 },
-  C: { pad: [52, 55, 60, 62], bass: 48 },
-  Dm: { pad: [53, 57, 60, 62], bass: 50 },
-  E: { pad: [52, 56, 59, 62], bass: 40 },
-  G: { pad: [50, 55, 59, 62], bass: 43 },
-};
-
-function renderMusic(audio, n) {
-  const B = audio.beat;
-  const beatOf = (t) => Math.round(t / B);
-  const s = Object.fromEntries(Object.entries(audio.sections).map(([k, t]) => [k, beatOf(t)]));
-  const endBeat = audio.duration / B;
-  const section = (b) =>
-    b < s.what ? 'hook' : b < s.below ? 'what' : b < s.above ? 'below' : b < s.dip ? 'above'
-      : b < s.touch2 ? 'dip' : b < s.bounce ? 'build' : b < s.recap ? 'bounce' : 'recap';
-
-  // Chords follow the story: neutral -> dark for sellers -> lift for buyers -> tension -> resolve on the recap.
-  const changes = [
-    [0, 'Am'], [s.what, 'Am'], [s.what + 2, 'F'], [s.what + 4, 'C'],
-    [s.below, 'Dm'], [s.above - 1, 'E'],
-    [s.above, 'F'], [s.above + 2, 'G'],
-    [s.dip, 'Am'], [s.touch2, 'F'], [s.bounce, 'G'],
-    [s.recap, 'C'], [s.recap + 2, 'G'],
-  ];
-  const chordAt = (b) => changes.filter(([at]) => at <= b + 1e-6).at(-1)[1];
-
-  const drums = new Bus(n);
-  const tonal = new Bus(n); // ducked by the kick
-  const verb = new Bus(n);
-  const kickTimes = [];
-
-  changes.forEach(([at, name], i) => {
-    const until = i + 1 < changes.length ? changes[i + 1][0] : endBeat + 1;
-    const dur = (until - at) * B;
-    const ch = CHORDS[name];
-    const pad = padChord(ch.pad, dur);
-    tonal.add(pad, at * B, 0.14);
-    verb.add(pad, at * B, 0.05);
-    if (at >= s.what) tonal.add(bassNote(ch.bass, dur - 0.01), at * B, 0.28);
-  });
-
-  for (let b8 = s.what * 2; b8 < endBeat * 2; b8++) {
-    const b = b8 / 2;
-    const t = b * B;
-    const sec = section(b);
-    const onBeat = b8 % 2 === 0;
-    const inBar = (b - s.what) % 4;
-    // kick: four on the floor, held back to one hit while the chart zooms in
-    if (onBeat && (sec !== 'dip' || b === s.dip)) {
-      drums.add(kick(), t, 0.75);
-      kickTimes.push(t);
-    }
-    // clap on 2 and 4, except in the quiet zoom and the snare build
-    if (onBeat && (inBar === 1 || inBar === 3) && !['dip', 'bounce'].includes(sec)) {
-      const c = clap();
-      drums.add(c, t, 0.3);
-      verb.add(c, t, 0.12);
-    }
-    // hats: off-beats, skipped for the sellers' section and the zoom
-    if (!onBeat && !['below', 'dip'].includes(sec)) drums.add(hat(), t, 0.16, 0.25);
-    if (sec === 'above' || sec === 'recap') {
-      drums.add(hat(), t + B / 4, 0.07, -0.3); // 16ths: more energy when buyers take over
-    }
-    // arpeggio on 8ths, shaped by the section
-    const pool = CHORDS[chordAt(b)].pad.map((m) => m + 12).sort((x, y) => x - y);
-    let step;
-    let bright = 1.1;
-    if (sec === 'hook' || sec === 'bounce') continue;
-    if (sec === 'below') {
-      step = 3 - (b8 % 4); // falling
-      bright = 0.45;
-    } else if (sec === 'above' || sec === 'recap') {
-      step = b8 % 4; // rising
-      bright = 1.25;
-    } else if (sec === 'dip') {
-      if (!onBeat) continue;
-      step = (b8 / 2) % 2 ? 2 : 0;
-      bright = 0.6;
-    } else {
-      step = [0, 1, 2, 3, 2, 1][b8 % 6];
-    }
-    const note = pool[step] + (sec === 'below' || sec === 'dip' ? 0 : 12);
-    const pl = pluck(note, { bright, decay: 0.16 });
-    tonal.add(pl, t, 0.26, b8 % 2 ? 0.35 : -0.35);
-    verb.add(pl, t, 0.12);
-  }
-
-  // build into the recap: snare roll in 16ths, crashes on the drop and the recap
-  for (let k = 0; k < (s.recap - s.bounce) * 4; k++) {
-    const p = k / ((s.recap - s.bounce) * 4);
-    drums.add(snare(1 + p * 0.3), (s.bounce + k / 4) * B, 0.12 + 0.3 * p, 0);
-  }
-  drums.add(crash(), s.what * B, 0.22);
-  drums.add(crash(), s.recap * B, 0.26);
-  drums.add(hat(true), s.above * B, 0.12, 0.3);
-
-  // sidechain: tonal parts dip under each kick (the "pumping" feel)
-  const duck = new Float32Array(n).fill(1);
-  for (const kt of kickTimes) {
-    const start = Math.round(kt * SR);
-    for (let i = 0; i < SR * 0.3 && start + i < n; i++) {
-      const tt = i / SR;
-      const d = 1 - 0.55 * Math.min(1, tt / 0.004) * Math.exp(-tt / 0.09);
-      duck[start + i] = Math.min(duck[start + i], d);
-    }
-  }
-  const v = reverb(verb, { room: 0.82, damp: 0.4 });
-  const mix = new Bus(n);
-  for (let i = 0; i < n; i++) {
-    mix.L[i] = drums.L[i] + tonal.L[i] * duck[i] + v.L[i] * 0.8;
-    mix.R[i] = drums.R[i] + tonal.R[i] * duck[i] + v.R[i] * 0.8;
-  }
-
-  // Filter automation tells the story too: muffled intro, dark for sellers, wide open for buyers, tension in the zoom.
-  const at = (name) => audio.sections[name];
-  const cutoffAt = (t) => {
-    if (t < at('what')) return 350 * (3500 / 350) ** (t / at('what'));
-    if (t < at('below')) return 16000;
-    if (t < at('above')) return 1300;
-    if (t < at('dip')) return 16000;
-    if (t < at('touch2')) return 2000;
-    if (t < at('recap')) return 2000 * 8 ** ((t - at('touch2')) / (at('recap') - at('touch2')));
-    return 16000;
-  };
-  const lps = [new Biquad('lp', 16000, 0.8), new Biquad('lp', 16000, 0.8)];
-  let fc = cutoffAt(0);
-  const smooth = 1 - Math.exp(-1 / (0.04 * SR));
-  for (let i = 0; i < n; i++) {
-    fc += (cutoffAt(i / SR) - fc) * smooth;
-    if (i % 32 === 0) lps.forEach((f) => f.set(fc));
-    mix.L[i] = lps[0].run(mix.L[i]);
-    mix.R[i] = lps[1].run(mix.R[i]);
-  }
-  return mix;
 }
 
 // ------------------------------------------------------------------ mastering
@@ -681,10 +499,12 @@ function limit(L, R, ceiling) {
     ahead[i] = need[q[0]];
   }
   const rel = 1 - Math.exp(-1 / (0.08 * SR));
-  let sum = look; // running sum of ahead[i - look + 1 .. i], primed with unity gain
+  // Running sum of ahead[i - look + 1 .. i]. Before the start, assume the first window's gain, so a hit
+  // on the very first sample (the opening impact) is caught too.
+  let sum = look * ahead[0];
   let g = 1;
   for (let i = 0; i < n; i++) {
-    sum += ahead[i] - (i >= look ? ahead[i - look] : 1);
+    sum += ahead[i] - (i >= look ? ahead[i - look] : ahead[0]);
     const target = sum / look;
     g = target < g ? target : g + (target - g) * rel;
     L[i] *= g;
@@ -695,22 +515,9 @@ function limit(L, R, ceiling) {
 export function renderSoundtrack(audio) {
   const n = Math.round(audio.duration * SR);
   seed = 7;
-  const music = renderMusic(audio, n);
   const sfx = renderSfx(audio, n);
-
-  // Music steps back a little whenever an effect plays, so the effects read clearly.
-  const L = new Float32Array(n);
-  const R = new Float32Array(n);
-  let env = 0;
-  const up = 1 - Math.exp(-1 / (0.005 * SR));
-  const down = 1 - Math.exp(-1 / (0.18 * SR));
-  for (let i = 0; i < n; i++) {
-    const level = Math.max(Math.abs(sfx.L[i]), Math.abs(sfx.R[i]));
-    env += (level - env) * (level > env ? up : down);
-    const duck = 1 - 0.35 * clamp(env * 2.5, 0, 1);
-    L[i] = music.L[i] * 0.62 * duck + sfx.L[i];
-    R[i] = music.R[i] * 0.62 * duck + sfx.R[i];
-  }
+  const L = sfx.L;
+  const R = sfx.R;
 
   // Phone speakers can't play below ~40 Hz; clear that rumble so loudness goes where people can hear it.
   const hps = [new Biquad('hp', 32), new Biquad('hp', 32)];
@@ -719,7 +526,7 @@ export function renderSoundtrack(audio) {
     R[i] = hps[1].run(R[i]);
   }
 
-  // Master to the loudness social apps normalise to, then catch peaks. Repeated, since limiting lowers loudness.
+  // Normalise loudness, then catch peaks. Repeated, since limiting lowers loudness.
   for (let pass = 0; pass < 3; pass++) {
     const gain = 10 ** ((TARGET_LUFS - loudness(L, R)) / 20);
     for (let i = 0; i < n; i++) {

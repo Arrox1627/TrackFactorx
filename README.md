@@ -1,43 +1,48 @@
-# VWAP in 10 seconds — explainer reel
+# VWAP in 14 seconds — explainer reel
 
-A 10-second vertical (1080×1920, 30 fps) reel that teaches a complete beginner what **VWAP** is and how traders use it,
-animated over a realistic candlestick chart with its VWAP line, with a soundtrack synced to the animation.
+A 13.9-second vertical (1080×1920, 30 fps) reel that teaches a complete beginner what **VWAP** is and how traders use
+it, animated over a realistic candlestick chart with its VWAP line, with sound effects synced to every animation.
 
 | File | Chart |
 | --- | --- |
 | [`out/vwap-explainer-reel.mp4`](out/vwap-explainer-reel.mp4) | **Main version.** Made-up but realistic intraday day for a fictional ticker, `DEMO`. |
 | [`out/vwap-explainer-reel-msft.mp4`](out/vwap-explainer-reel-msft.mp4) | Alternate. Real Microsoft (MSFT) session from Apr 22, 2016. |
 
-Both are H.264 + AAC (48 kHz stereo), mastered to -14 LUFS with true peak ≤ -1.3 dBTP, ready for Instagram Reels,
-TikTok and YouTube Shorts. Each soundtrack is also saved on its own (`out/*.wav`) for editing in CapCut or Premiere.
+Both are H.264 + AAC (48 kHz stereo). The audio is mastered to -16 LUFS with true peak ≤ -1.3 dBTP and has no music
+bed, so you can add a trending sound in the app on top. Each soundtrack is also saved on its own (`out/*.wav`).
 
 ## What the viewer sees and hears
 
 | Time | Beat | On screen | Sound |
 | --- | --- | --- | --- |
-| 0–1.35 s | Hook | Big **VWAP** unfolds into **V**olume **W**eighted **A**verage **P**rice | Impact, whoosh, four sparkles as the words type in, then a riser and a short silence |
-| 1.35–4.05 s | 1 · What it is | "The average price of every share traded today." Candles and the VWAP line draw in together; the heavy opening volume bars flash. | The beat drops. One tick per candle, panned left to right with the chart and pitched by that candle's price, so you hear the sell-off and the recovery. |
-| 4.05–5.4 s | 2 · How to read it | "Price **below** the line → **sellers** in control." Red zone, morning sell-off highlighted. | Music turns muffled and dark, falling motif, red-zone sweep |
-| 5.4–6.75 s | 2 · How to read it | Words roll to "Price **above** the line → **buyers** in control." Green zone, ring where price crosses back above. | Word-flip clicks, music opens up bright, rising motif, ping on the cross |
-| 6.75–8.55 s | 3 · How to use it | "Dips to the line often **bounce**." Zoom into two VWAP touches and the bounce (with its % move). | Zoom whoosh, drums drop out, a sonar ping on each touch, swoosh up, then a chime on "bounce", and a snare build |
-| 8.55–10 s | Recap | Above → buyers, Below → sellers, Dips to it → watch for a bounce. "A guide, not a guarantee." | Crash, full beat, one pop per recap row |
+| 0–1.8 s | Hook | Big **VWAP** unfolds into **V**olume **W**eighted **A**verage **P**rice | Impact with a shimmer, whoosh, four sparkle notes as the words type in, then a whoosh as the title clears |
+| 1.8–5.5 s | 1 · What it is | "The average price of every share traded today." Candles and the VWAP line draw in together; the heavy opening volume bars flash. | Soft "thock" as the chart lands and a blip as the VWAP tag pops in. One tick per candle, panned left to right with the chart and pitched by that candle's price. A weighty thump when the heavy-volume bars light up. |
+| 5.5–7.3 s | 2 · How to read it | "Price **below** the line → **sellers** in control." Red zone, morning sell-off highlighted. | Dark sweep left to right with a falling motif |
+| 7.3–9.1 s | 2 · How to read it | Words roll to "Price **above** the line → **buyers** in control." Green zone, ring where price crosses back above. | Word-flip clicks, bright sweep with a rising motif, ping on the cross |
+| 9.1–11.5 s | 3 · How to use it | "Dips to the line often **bounce**." Zoom into two VWAP touches and the bounce (with its % move). | Zoom whoosh, sonar ping on each touch, swoosh up, then a chime on "bounce" |
+| 11.5–13.9 s | Recap | Above → buyers, Below → sellers, Dips to it → watch for a bounce. "A guide, not a guarantee." | Zoom-out whoosh, one pop per recap row |
 
-## Soundtrack
+## Look
 
-[`scripts/soundtrack.mjs`](scripts/soundtrack.mjs) synthesises everything in code, so there are no samples and nothing
-to license. The reel exports a cue sheet (`window.REEL.audio`) built from the same timing constants that drive the
-animation, so each sound lands on its visual. If you retime the animation, the audio follows.
+- **Words:** [Bricolage Grotesque](https://github.com/ateliertriay/bricolage). The display cut is used for headlines
+  and the hook, the text cut for subtitles and recap rows. It's distinctive (ink traps, a characterful "g") and very
+  legible at phone size.
+- **Labels and numbers:** [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) for chips, price axis, tags and
+  footers, which gives the chart a trading-terminal feel.
+- **Fonts on disk:** both are SIL OFL 1.1, bundled in `assets/fonts/` as static Latin subsets (WOFF2, ~19 KB each),
+  with their licences.
 
-- **Music:** a 133⅓ BPM bed (1 beat = 0.45 s) with kick, clap, hats, bass, pad and a plucked arpeggio, plus sidechain
-  "pumping". Scene changes were nudged onto that beat grid (by 0.05 s at most) so cuts land on the beat. The chords
-  and a filter follow the story:
-  - neutral for "what it is";
-  - minor and muffled for sellers;
-  - a bright lift for buyers;
-  - tension in the zoom;
-  - a resolution on the recap.
-- **Mix:** the music ducks a little under each sound effect. Sub-bass is trimmed because phone speakers can't play it.
-  The master is normalised to -14 LUFS (BS.1770) with a true-peak look-ahead limiter.
+## Sound effects
+
+[`scripts/soundtrack.mjs`](scripts/soundtrack.mjs) synthesises every sound in code, so there are no samples and
+nothing to license. The reel exports a cue sheet (`window.REEL.audio`) built from the same timing constants that drive
+the animation, so each sound lands on its visual (checked at ±3 ms in the final MP4). If you retime the animation, the
+audio follows.
+
+- **Mix:** a high-pass on the master and on the reverb/echo sends keeps the low end clean, because phone speakers
+  can't play sub-bass anyway.
+- **Mastering:** loudness is normalised to -16 LUFS (BS.1770) with a true-peak look-ahead limiter. Only the opening
+  impact gets limited, by about 2 dB.
 
 ## Chart data
 
@@ -54,7 +59,9 @@ full-day and zoomed chart ranges. Nothing in the animation is tied to one datase
 
 ## How it's built
 
-Every frame is a pure function of time `t`, drawn on a `<canvas>` by [`src/reel.js`](src/reel.js).
+Every frame is a pure function of time `t`, drawn on a `<canvas>` by [`src/reel.js`](src/reel.js). Animation timings
+are written for a 10 s cut, and `PACE` (1.35) stretches the whole reel evenly to its final `DURATION` (13.9 s). Change
+those two numbers to make it faster or slower. The sound cues stretch with it.
 [`scripts/render.mjs`](scripts/render.mjs) opens the page in headless Chromium (Playwright), synthesises the
 soundtrack from the cue sheet, captures all 300 frames, and pipes them into ffmpeg.
 
@@ -63,9 +70,9 @@ scripts/generate-sample.mjs     -> data/sample_1min.csv     (made-up day)
 data/MSFT_2016-04-22_1min.csv   real day
 scripts/build-data.mjs          -> src/data.js  (5-min candles, VWAP, key moments, chart ranges)
 src/index.html + src/reel.js    the animation, its audio cue sheet, and a live preview player
-scripts/soundtrack.mjs          music + sound effects, synthesised from the cue sheet
+scripts/soundtrack.mjs          sound effects, synthesised from the cue sheet
 scripts/render.mjs              -> out/*.mp4 + out/*.wav
-assets/fonts/                   Inter (SIL OFL 1.1), Latin subset
+assets/fonts/                   Bricolage Grotesque + JetBrains Mono (SIL OFL 1.1), Latin subsets
 ```
 
 ### Re-render or tweak it
@@ -90,13 +97,14 @@ run `npm run data -- msft` first.
 - **Wording:** edit `SCENES` near the top of `src/reel.js`. Keyword colouring uses `[amber]…[/]`, `[red]…[/]` and
   `[green]…[/]` markup.
 - **Timing and colours:** timings live in the `T` object, colours in `C`.
-- **Sound:** levels, chords and instruments are in `scripts/soundtrack.mjs`. `renderSfx` handles each cue type, and
-  `renderMusic` builds the beat.
+- **Sound:** levels and effect design are in `scripts/soundtrack.mjs`. The `renderSfx` switch handles each cue
+  type.
 
 ## Posting notes
 
 - Text and the chart sit between y≈270 and y≈1610, so the platform header and caption overlays don't cover them.
   The price-axis labels on the far right may sit under the like/comment buttons. They aren't needed to follow the story.
-- The video has its own soundtrack. To use a trending sound instead, turn the original audio down in the app when you post.
+- The audio is animation sounds only (no music), so a trending sound can go on top. In the app, balance it against
+  the original audio.
 - The first frame is the big "VWAP" title, so it works as the default cover.
 - Educational content only, not financial advice. The video says so on screen.
