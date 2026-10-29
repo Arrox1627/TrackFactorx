@@ -10,9 +10,15 @@ const BAR_MINUTES = 5;
 
 const PRESETS = {
   // Made-up but realistic day from scripts/generate-sample.mjs (fictional ticker).
-  sample: { csv: 'sample_1min.csv', ticker: 'DEMO', name: 'Sample stock', session: 'intraday', credit: 'Illustrative data' },
+  sample: {
+    csv: 'sample_1min.csv', output: 'vwap-explainer-reel',
+    ticker: 'DEMO', name: 'Sample stock', session: 'intraday', credit: 'Illustrative data',
+  },
   // Real Microsoft session (see data/README.md).
-  msft: { csv: 'MSFT_2016-04-22_1min.csv', ticker: 'MSFT', name: 'Microsoft', session: 'Apr 22, 2016', credit: 'Real MSFT data · Apr 22, 2016' },
+  msft: {
+    csv: 'MSFT_2016-04-22_1min.csv', output: 'vwap-explainer-reel-msft',
+    ticker: 'MSFT', name: 'Microsoft', session: 'Apr 22, 2016', credit: 'Real MSFT data · Apr 22, 2016',
+  },
 };
 
 const presetName = process.argv[2] ?? 'sample';
@@ -92,6 +98,7 @@ const zoom = [z0 - 0.4, z1 + 0.4, ...pad(Math.min(...win.map((b) => Math.min(b.l
 const round = (x, d = 4) => Math.round(x * 10 ** d) / 10 ** d;
 const data = {
   preset: presetName,
+  output: preset.output,
   ticker: preset.ticker,
   name: preset.name,
   session: preset.session,

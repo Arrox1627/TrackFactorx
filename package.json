@@ -9,6 +9,7 @@
     "data": "node scripts/build-data.mjs",
     "preview": "node scripts/server.mjs",
     "render": "node scripts/render.mjs",
+    "audio": "node -e \"process.env.AUDIO_ONLY='1'; import('./scripts/render.mjs')\"",
     "frames": "node -e \"process.env.FRAMES=process.argv[1]; import('./scripts/render.mjs')\""
   },
   "devDependencies": {

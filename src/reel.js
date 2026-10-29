@@ -49,29 +49,40 @@
   const SUB_Y = 580;
 
   // ---------------------------------------------------------------- timeline (seconds)
+  // Cuts and key hits sit on the soundtrack's 133⅓ BPM grid (1 beat = 0.45 s) so the music lands on them.
+  const BEAT = 0.45;
   const T = {
+    hookUnfold: [0.22, 0.56],
+    hookType: 0.5, // first word starts typing; the others follow HOOK_TYPE_STAGGER apart
     hookOut: [1.08, 1.34],
+    what: 3 * BEAT, // beat drops, chart arrives
     chartIn: [1.3, 1.6],
     draw: [1.6, 3.75],
     volFlash: [2.45, 3.6],
-    below: 4.0,
-    above: 5.35,
-    dip: 6.7,
-    zoomIn: [6.72, 7.2],
+    below: 9 * BEAT,
+    above: 12 * BEAT,
+    reclaimRing: 12.5 * BEAT,
+    dip: 15 * BEAT,
+    zoomIn: [6.77, 16 * BEAT],
+    touches: [16 * BEAT, 17 * BEAT],
+    arrow: [7.75, 18 * BEAT],
+    bounce: 18 * BEAT,
     zoomOut: [8.4, 8.85],
-    recap: 8.55,
+    recap: 19 * BEAT,
+    recapRows: [19.5 * BEAT, 20 * BEAT, 20.5 * BEAT],
   };
+  const HOOK_TYPE_STAGGER = 0.055;
 
   const SCENES = [
     {
-      start: 1.4, end: T.below, chip: '1 · WHAT IT IS',
+      start: T.what, end: T.below, chip: '1 · WHAT IT IS',
       head: ['The [amber]average price[/] of', 'every share traded today'],
-      sub: 'Big-volume trades pull the line harder', subAt: 2.3,
+      sub: 'Big-volume trades pull the line harder', subAt: 5 * BEAT,
     },
     {
       start: T.below, end: T.dip, chip: '2 · HOW TO READ IT',
       head: ['Price [red]below[/] the line', '→ [red]sellers[/] in control'],
-      sub: "Today's average buyer is [red]losing money[/]", subAt: 4.3,
+      sub: "Today's average buyer is [red]losing money[/]", subAt: 9.5 * BEAT,
       morphAt: T.above,
       head2: ['Price [green]above[/] the line', '→ [green]buyers[/] in control'],
       sub2: "Today's average buyer is [green]in profit[/]",
@@ -79,12 +90,12 @@
     {
       start: T.dip, end: T.recap, chip: '3 · HOW TO USE IT',
       head: ['Dips to the line', 'often [green]bounce[/] ↑'],
-      sub: 'Traders treat VWAP like a floor to buy from', subAt: 7.0,
+      sub: 'Traders treat VWAP like a floor to buy from', subAt: 15.5 * BEAT,
     },
     {
       start: T.recap, end: DURATION + 1, chip: 'RECAP',
       head: ["VWAP = the day's", '[amber]fair price[/]'],
-      sub: 'A guide, not a guarantee', subAt: 9.2,
+      sub: 'A guide, not a guarantee', subAt: 20.5 * BEAT,
     },
   ];
 
@@ -630,7 +641,7 @@
   }
 
   function drawReclaim(t, view) {
-    const p = prog(t, T.above + 0.15, T.above + 1.15);
+    const p = prog(t, T.reclaimRing, T.reclaimRing + 1);
     const a = 1 - prog(t, T.dip - 0.2, T.dip);
     if (p <= 0 || a <= 0) return;
     const x = view.x(RECLAIM_BAR + 0.5);
@@ -640,7 +651,7 @@
     ripple(x, y, p, C.up);
     pill(x + 40, y + 64, 'crosses above', {
       font: FONT.semi(22), bg: 'rgba(6,9,15,0.85)', border: 'rgba(38,208,124,0.6)', fg: '#7af0b4', h: 40, padX: 14,
-      alpha: ease.out(prog(t, T.above + 0.3, T.above + 0.55)),
+      alpha: ease.out(prog(t, T.reclaimRing + 0.1, T.reclaimRing + 0.35)),
     });
     ctx.restore();
   }
@@ -651,7 +662,7 @@
     ctx.save();
     ctx.globalAlpha *= a;
     TOUCHES.forEach((bar, k) => {
-      const start = 7.15 + k * 0.35;
+      const start = T.touches[k];
       const x = view.x(bar + 0.5);
       const y = view.y(BARS[bar].vwap);
       ripple(x, y, prog(t, start, start + 1.2), C.amber);
@@ -666,12 +677,12 @@
     const y0 = view.y(BARS[last].vwap) - 34;
     const x1 = view.x(BOUNCE_HIGH_BAR + 0.5);
     const y1 = view.y(BARS[BOUNCE_HIGH_BAR].h) - 26;
-    const ap = ease.inOut(prog(t, 7.75, 8.2));
+    const ap = ease.inOut(prog(t, ...T.arrow));
     arrow(x0, y0, x0 + 6, y1 + 20, x1, y1, ap, C.up);
     const gain = ((BARS[BOUNCE_HIGH_BAR].h / BARS[last].vwap - 1) * 100).toFixed(1);
     pill(x1 + 10, y1 - 34, `bounce +${gain}%`, {
       font: FONT.semi(26), bg: 'rgba(38,208,124,0.18)', border: 'rgba(38,208,124,0.7)', fg: '#7af0b4', h: 48, align: 'center',
-      alpha: ease.out(prog(t, 8.05, 8.3)),
+      alpha: ease.out(prog(t, T.bounce, T.bounce + 0.25)),
     });
     ctx.restore();
   }
@@ -713,7 +724,7 @@
     const widest = Math.max(...rows.map((r) => ctx.measureText(r.text.replace(/\[\/?\w*\]/g, '')).width));
     const size = Math.min(44, Math.floor((44 * 790) / widest));
     rows.forEach((r, i) => {
-      const p = ease.out(prog(t, T.recap + 0.2 + i * 0.13, T.recap + 0.55 + i * 0.13));
+      const p = ease.out(prog(t, T.recapRows[i], T.recapRows[i] + 0.35));
       if (p <= 0) return;
       const y = baseY + i * gap;
       const dx = (1 - p) * 50;
@@ -769,7 +780,7 @@
   }
 
   function drawFooter(t) {
-    const a = prog(t, 1.4, 1.8) * 0.9;
+    const a = prog(t, T.what, T.what + 0.4) * 0.9;
     if (a <= 0) return;
     ctx.save();
     ctx.globalAlpha = a;
@@ -803,7 +814,7 @@
     const outP = ease.inOut(prog(t, ...T.hookOut));
     if (outP >= 1) return;
     const settle = ease.outBack(prog(t, 0, 0.35));
-    const unfold = ease.inOut(prog(t, 0.22, 0.56));
+    const unfold = ease.inOut(prog(t, ...T.hookUnfold));
 
     ctx.save();
     ctx.globalAlpha = 1 - outP;
@@ -855,7 +866,7 @@
       ctx.shadowBlur = 0;
 
       // The rest of the word types on after its initial lands.
-      const typeP = prog(t, 0.5 + i * 0.055, 0.76 + i * 0.055);
+      const typeP = prog(t, T.hookType + i * HOOK_TYPE_STAGGER, T.hookType + 0.26 + i * HOOK_TYPE_STAGGER);
       if (typeP > 0) {
         const lead = ctx.measureText(word[0]).width;
         const rest = word.slice(1);
@@ -892,7 +903,49 @@
     ctx.restore();
   }
 
-  window.REEL = { W, H, DURATION, FPS };
+  // ---------------------------------------------------------------- soundtrack cue sheet
+  // scripts/soundtrack.mjs turns this into music + sound effects, so the audio follows the same timeline as the picture.
+  function audioCues() {
+    const pan = (t, u) => clamp((viewAt(t).x(u) - W / 2) / (W / 2), -1, 1);
+    const whoosh = (span, from, to, panFrom = 0, panTo = 0) => ({
+      t: span[0], type: 'whoosh', dur: span[1] - span[0], from, to, pan: [panFrom, panTo],
+    });
+    const last = TOUCHES.at(-1);
+    const cues = [
+      { t: 0, type: 'impact' },
+      whoosh([T.hookUnfold[0], T.hookUnfold[1] + 0.12], 500, 2600, -0.4, 0.4),
+      ...HOOK_WORDS.map((_, i) => ({ t: T.hookType + i * HOOK_TYPE_STAGGER, type: 'sparkle', step: i })),
+      { t: 0.8, type: 'riser', dur: T.what - 0.8 - 0.05 }, // stops just short of the drop: a breath before the beat
+      // One tick per candle as it draws in: panned with its x position, pitched by its closing price.
+      ...BARS.map((b, i) => ({
+        t: T.draw[0] + ((T.draw[1] - T.draw[0]) * Math.acos(1 - (2 * i) / BARS.length)) / Math.PI,
+        type: 'tick',
+        pan: pan(T.draw[0], i + 0.5),
+        level: (b.c - FULL[2]) / SPAN,
+      })),
+      { t: T.below, type: 'zone', mood: 'down', dur: 0.5 },
+      { t: T.above, type: 'flip' },
+      { t: T.above, type: 'zone', mood: 'up', dur: 0.5 },
+      { t: T.reclaimRing, type: 'ping', step: 2, pan: pan(T.reclaimRing, RECLAIM_BAR + 0.5) },
+      whoosh(T.zoomIn, 300, 4200),
+      ...TOUCHES.map((bar, k) => ({ t: T.touches[k], type: 'ping', step: k, pan: pan(T.touches[k], bar + 0.5) })),
+      whoosh(T.arrow, 900, 6000, pan(T.arrow[0], last + 0.5), pan(T.arrow[1], BOUNCE_HIGH_BAR + 0.5)),
+      { t: T.bounce, type: 'chime' },
+      whoosh(T.zoomOut, 4000, 450),
+      ...T.recapRows.map((t, i) => ({ t, type: 'pop', step: i })),
+    ];
+    return {
+      duration: DURATION,
+      beat: BEAT,
+      sections: {
+        what: T.what, below: T.below, above: T.above, dip: T.dip,
+        touch2: T.touches[1], bounce: T.bounce, recap: T.recap,
+      },
+      cues,
+    };
+  }
+
+  window.REEL = { W, H, DURATION, FPS, audio: audioCues() };
   window.renderFrame = (t) => {
     draw(t);
     return canvas.toDataURL('image/png');
@@ -921,12 +974,25 @@
       scrub.value = t;
       clock.textContent = `${t.toFixed(2)}s`;
     };
+    // Soundtrack written next to the video by `npm run render` / `npm run audio`.
+    // Browsers only allow sound after a click or key press, so it joins in once you press Play.
+    const sound = new Audio(`../out/${D.output}.wav`);
+    let soundOk = true;
+    sound.addEventListener('error', () => { soundOk = false; });
+    const syncSound = () => {
+      if (!soundOk) return;
+      if (!playing) return sound.pause();
+      sound.currentTime = t;
+      sound.play().catch(() => {});
+    };
     const toggle = () => {
       playing = !playing;
       play.textContent = playing ? 'Pause' : 'Play';
       last = performance.now();
+      syncSound();
     };
     play.addEventListener('click', toggle);
+    canvas.addEventListener('click', toggle);
     scrub.addEventListener('input', () => {
       if (playing) toggle();
       t = +scrub.value;
@@ -942,12 +1008,20 @@
     });
     const tick = (now) => {
       if (playing) {
-        t = (t + (now - last) / 1000) % DURATION;
+        // Follow the audio clock while sound runs, so picture and sound can't drift apart.
+        const next = soundOk && !sound.paused ? sound.currentTime : t + (now - last) / 1000;
+        if (next >= DURATION) {
+          t = 0;
+          syncSound();
+        } else {
+          t = next;
+        }
         show();
       }
       last = now;
       requestAnimationFrame(tick);
     };
+    syncSound();
     requestAnimationFrame(tick);
   });
 })();
